@@ -1,9 +1,22 @@
+import struct
+
 a = open("a", "rb").read()
 
 
 def beautify(k):
     for i in k:
         print(i, k[i])
+
+
+def get_permission(k):
+    return bin(ord(k))[2:].zfill(3)
+
+
+def get_offset(k):
+    if k:
+        return hex(struct.unpack("I", k)[0])
+    else:
+        return 0x0
 
 
 def parse_bytes(k):
@@ -32,8 +45,12 @@ def get_filetype(current_index: int, content):
     return current_index + 1, content[current_index: current_index + 1]
 
 
-def get_bool(current_index: int, content):
+def get_byte7(current_index: int, content):
     return current_index + 1, content[current_index: current_index + 1]
+
+
+def get_bool(current_index: int, content):
+    return get_byte7(current_index, content)
 
 
 def parse_symbol(current_index: int, content):
@@ -47,7 +64,7 @@ def parse_symbol(current_index: int, content):
         "name": name,
         "is_define": is_define,
         "section": section,
-        "offset": offset,
+        "offset": get_offset(offset),
     }
 
 
@@ -85,7 +102,7 @@ def parse_relocation(current_index: int, content):
     current_index, plus = get_word28(current_index, content)
     return current_index, {
         "section": section,
-        "offset": offset,
+        "offset": get_offset(offset),
         "symbol": symbol,
         "plus": plus
     }
@@ -96,16 +113,15 @@ def parse_section_table(current_index: int, content):
     num_sections = parse_bytes(num_sections)
     sections = {}
     for section in range(num_sections):
-        permissions = content[current_index]
-        current_index += 1
+        current_index, permissions = get_byte7(current_index, content)
         current_index, offset = get_word28(current_index, content)
         current_index, name = get_text7(current_index, content)
         current_index, size = get_word28(current_index, content)
         sections[name] = {
-            "permissions": permissions,
-            "offset": offset,
+            "permissions": get_permission(permissions),
+            "offset": get_offset(offset),
             "name": name,
-            "size": size}
+            "size": hex(parse_bytes(size))}
     return current_index, sections
 
 
@@ -113,14 +129,14 @@ def parse_segment(current_index: int, content):
     current_index, name = get_text7(current_index, content)
     current_index, offset = get_word28(current_index, content)
     current_index, base = get_word28(current_index, content)
-    current_index, permissions = get_bool(current_index, content)
-    current_index, segmentType = get_bool(current_index, content)
+    current_index, permissions = get_byte7(current_index, content)
+    current_index, segmentType = get_byte7(current_index, content)
     # 0b10 for progbits and 0b01 for note
     return current_index, {
         "name": name,
-        "offset": offset,
+        "offset": get_offset(offset),
         "base": base,
-        "permissions": permissions,
+        "permissions": get_permission(permissions),
         "segmentType": segmentType
     }
 
