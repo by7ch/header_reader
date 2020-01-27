@@ -1,4 +1,4 @@
-a = open("/Users/shouc/Desktop/a", "rb").read()
+a = open("a", "rb").read()
 
 
 def beautify(k):
@@ -8,8 +8,10 @@ def beautify(k):
 
 def parse_bytes(k):
     result = 0
-    for key, i in enumerate(k):
-        result += i * (16 ** key)
+    shift_amt = 0
+    for i in k:
+        result |= (i << shift_amt)
+        shift_amt += 7
     return result
 
 
@@ -38,7 +40,6 @@ def parse_symbol(current_index: int, content):
     current_index, name = get_text7(current_index, content)
     current_index, is_define = get_bool(current_index, content)
     section, offset = "", ""
-    print(is_define)
     if is_define == b"\x01":
         current_index, section = get_word28(current_index, content)
         current_index, offset = get_word28(current_index, content)
@@ -54,7 +55,7 @@ def parse_symbol_table(current_index: int, content):
     current_index, num_entries = get_word28(current_index, content)
     symbols = []
     for i in range(num_entries[0]):
-        #todo: change
+        # todo: change
         current_index, s = parse_symbol(current_index, content)
         symbols.append(s)
     return current_index, {
@@ -65,9 +66,10 @@ def parse_symbol_table(current_index: int, content):
 
 def parse_relocation_table(current_index: int, content):
     current_index, num_entries = get_word28(current_index, content)
+    num_entries = parse_bytes(num_entries)
     relocations = []
 
-    for i in range(parse_bytes(num_entries)):
+    for i in range(num_entries):
         current_index, relocation = parse_relocation(current_index, content)
         relocations.append(relocation)
     return current_index, {
@@ -91,8 +93,9 @@ def parse_relocation(current_index: int, content):
 
 def parse_section_table(current_index: int, content):
     current_index, num_sections = get_word28(current_index, content)
+    num_sections = parse_bytes(num_sections)
     sections = {}
-    for section in range(parse_bytes(num_sections)):
+    for section in range(num_sections):
         permissions = content[current_index]
         current_index += 1
         current_index, offset = get_word28(current_index, content)
@@ -124,8 +127,9 @@ def parse_segment(current_index: int, content):
 
 def parse_segment_table(current_index: int, content):
     current_index, num_entries = get_word28(current_index, content)
+    num_entries = parse_bytes(num_entries)
     segments = []
-    for i in range(parse_bytes(num_entries)):
+    for i in range(num_entries):
         current_index, s = parse_segment(current_index, content)
         segments.append(s)
     return current_index, {
@@ -144,11 +148,14 @@ def parse_orcfile_struct(content):
         current_index, entry_point = get_word28(current_index, content)
     current_index, symbol_table = parse_symbol_table(current_index, content)
 
-    current_index, relocation_table = parse_relocation_table(current_index, content)
+    current_index, relocation_table = parse_relocation_table(
+        current_index, content)
     current_index, section_table = parse_section_table(current_index, content)
     current_index, segment_table = parse_segment_table(current_index, content)
-    print(segment_table)
+    beautify(symbol_table)
+    beautify(relocation_table)
+    beautify(section_table)
+    beautify(segment_table)
+
 
 parse_orcfile_struct(a)
-
-
